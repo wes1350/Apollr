@@ -4,6 +4,7 @@ import math
 
 
 MAX_RATING = 5
+DATA_POINTS_TO_READ = 100000
 
 
 def convert_to_rating(data, max_rating=MAX_RATING):
@@ -121,4 +122,4 @@ def perform_CF(data_points):
     return error, accuracy
 
 
-print(perform_CF(100000))
+print(perform_CF(DATA_POINTS_TO_READ))
