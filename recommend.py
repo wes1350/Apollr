@@ -22,7 +22,7 @@ def convert_to_rating(data, max_rating=MAX_RATING):
     return [math.ceil(percentage/probability_bin) for percentage in ratings]
 
 
-def load_k(k=1000, filename='train_triplets.txt', max_rating=MAX_RATING):
+def load_k(k, filename='train_triplets.txt', max_rating=MAX_RATING):
     """
         Reads the first k files from the data set and creates a panda data frame with
         columns itemID, useID and rating by transforming the play count to a range
@@ -82,7 +82,7 @@ def split_for_eval(data_frame, num_train):
     return train, test
 
 
-def perform_CF(data_points=10000):
+def perform_CF(data_points):
     """
         Gets data to perform filtering
 
