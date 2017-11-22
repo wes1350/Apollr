@@ -7,25 +7,26 @@ MAX_RATING = 5
 DATA_POINTS_TO_READ = 100000
 
 
-def convert_to_rating(data, max_rating=MAX_RATING):
+def convert_to_rating(data, max_rating=MAX_RATING, max_rating_filter = 0):
     """
         Converts a list of play counts for a certain user to a list of ratings based on the
         given scale.
 
         :param data:
         :param max_rating:
+        :param max_rating_filter:
         :return:
     """
 
     probability_bin = 1.0/max_rating
     max_value = max(data)
-    if max_value <= 20:
+    if max_value <= max_rating_filter:
         return None
     ratings = [1.0*play_count/max_value for play_count in data]
     return [math.ceil(1.0*percentage/probability_bin) for percentage in ratings]
 
 
-def load_k(k, filename='../867FPData/train_triplets.txt', max_rating=MAX_RATING):
+def load_k(k, filename='../867FPData/train_triplets.txt', max_rating=MAX_RATING, max_rating_filter = 0):
     """
         Reads the first k files from the data set and creates a panda data frame with
         columns itemID, useID and rating by transforming the play count to a range
@@ -65,7 +66,7 @@ def load_k(k, filename='../867FPData/train_triplets.txt', max_rating=MAX_RATING)
                 temp_userids.append(line[0])
                 temp_itemids.append(line[1])
             else:
-                converted_rating = convert_to_rating(temp_ratings, max_rating)
+                converted_rating = convert_to_rating(temp_ratings, max_rating, max_rating_filter)
                 if converted_rating is not None:
                     ct +=1
                     print(ct)
@@ -77,7 +78,7 @@ def load_k(k, filename='../867FPData/train_triplets.txt', max_rating=MAX_RATING)
                 temp_userids = [line[0]]
                 current_user = line[0]
 
-    converted_rating = convert_to_rating(temp_ratings, max_rating)
+    converted_rating = convert_to_rating(temp_ratings, max_rating, max_rating_filter)
     if converted_rating is not None:
         ratings.extend(converted_rating)
         userids.extend(temp_userids)
@@ -105,14 +106,14 @@ def split_for_eval(data_frame, num_train):
     return train, test
 
 
-def perform_CF(data_points):
+def perform_CF(data_points, max_rating_filter = 0):
     """
         Gets data to perform filtering
 
         :param data_points:
         :return:
     """
-    df = load_k(data_points)
+    df = load_k(data_points, max_rating_filter=max_rating_filter)
     numRows = df.shape[0]
     print("NUM ROWS:", numRows)
     train, test = split_for_eval(df, num_train=int(0.9*numRows))
@@ -150,5 +151,5 @@ def perform_CF(data_points):
     return "ERROR, ACCURACY, ACCURACY_RMS:", error, accuracy, acc_rms
 
 
-print(perform_CF(DATA_POINTS_TO_READ))
+print(perform_CF(DATA_POINTS_TO_READ, max_rating_filter=20))
 # print(convert_to_rating([i for i in range(1,13)], 5))
