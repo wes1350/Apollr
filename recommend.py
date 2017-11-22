@@ -17,13 +17,15 @@ def convert_to_rating(data, max_rating=MAX_RATING):
         :return:
     """
 
-    probability_bin = 1/max_rating
+    probability_bin = 1.0/max_rating
     max_value = max(data)
-    ratings = [play_count/max_value for play_count in data]
-    return [math.ceil(percentage/probability_bin) for percentage in ratings]
+    if max_value <= 20:
+        return None
+    ratings = [1.0*play_count/max_value for play_count in data]
+    return [math.ceil(1.0*percentage/probability_bin) for percentage in ratings]
 
 
-def load_k(k, filename='train_triplets.txt', max_rating=MAX_RATING):
+def load_k(k, filename='../867FPData/train_triplets.txt', max_rating=MAX_RATING):
     """
         Reads the first k files from the data set and creates a panda data frame with
         columns itemID, useID and rating by transforming the play count to a range
@@ -33,34 +35,54 @@ def load_k(k, filename='train_triplets.txt', max_rating=MAX_RATING):
         :param filename:
         :return:
     """
+    ct = 0
     itemids = []
     userids = []
     ratings = []
 
     temp_ratings = []
+    temp_itemids = []
+    temp_userids = []
 
     with open(filename, mode='r') as f:
         line = next(f).strip().split()
         current_user = line[0]
 
-        userids.append(line[0])
-        itemids.append(line[1])
+        # userids.append(line[0])
+        # itemids.append(line[1])
+        temp_userids.append(line[0])
+        temp_itemids.append(line[1])
         temp_ratings.append(float(line[2]))
 
         for i in range(k-1):
             line = next(f).strip().split()
 
-            itemids.append(line[1])
-            userids.append(line[0])
+            # itemids.append(line[1])
+            # userids.append(line[0])
 
             if current_user == line[0]:
                 temp_ratings.append(float(line[2]))
+                temp_userids.append(line[0])
+                temp_itemids.append(line[1])
             else:
-                ratings.extend(convert_to_rating(temp_ratings, max_rating))
+                converted_rating = convert_to_rating(temp_ratings, max_rating)
+                if converted_rating is not None:
+                    ct +=1
+                    print(ct)
+                    ratings.extend(converted_rating)
+                    userids.extend(temp_userids)
+                    itemids.extend(temp_itemids)
                 temp_ratings = [float(line[2])]
+                temp_itemids = [line[1]]
+                temp_userids = [line[0]]
                 current_user = line[0]
 
-    ratings.extend(convert_to_rating(temp_ratings, max_rating))
+    converted_rating = convert_to_rating(temp_ratings, max_rating)
+    if converted_rating is not None:
+        ratings.extend(converted_rating)
+        userids.extend(temp_userids)
+        itemids.extend(temp_itemids)
+
     ratings_dict = {'itemID': itemids, 'userID': userids, 'rating': ratings}
     df = pd.DataFrame(ratings_dict)
     return df
@@ -90,8 +112,10 @@ def perform_CF(data_points):
         :param data_points:
         :return:
     """
-
-    train, test = split_for_eval(load_k(data_points), num_train=int(0.9*data_points))
+    df = load_k(data_points)
+    numRows = df.shape[0]
+    print("NUM ROWS:", numRows)
+    train, test = split_for_eval(df, num_train=int(0.9*numRows))
 
     reader = Reader(rating_scale=(1, 5))
     data = Dataset.load_from_df(train[['userID', 'itemID', 'rating']], reader)
@@ -104,6 +128,7 @@ def perform_CF(data_points):
 
     deviation = 0
     accuracy = 0
+    acc_sq_err = 0
     for row in test.iterrows():
 
         user = row[1][2]
@@ -116,10 +141,14 @@ def perform_CF(data_points):
 
         if rating == round(prediction[3]):
             accuracy += 1
+        else:
+            acc_sq_err += (rating -round(prediction[3]))**2
 
-    error = deviation/(len(test) - 1)
-    accuracy = accuracy/(len(test)-1)
-    return error, accuracy
+    error = 1.0*deviation/(len(test) - 1)
+    accuracy = 1.0*accuracy/(len(test)-1)
+    acc_rms = (1.0*acc_sq_err/(len(test)-1))**0.5
+    return "ERROR, ACCURACY, ACCURACY_RMS:", error, accuracy, acc_rms
 
 
 print(perform_CF(DATA_POINTS_TO_READ))
+# print(convert_to_rating([i for i in range(1,13)], 5))
