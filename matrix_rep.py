@@ -1,6 +1,8 @@
 import numpy as np
 
 
+PATH = "test_id_playcount_pairs"
+
 class IdAssigner:
 
     def __init__(self):
@@ -14,14 +16,7 @@ class IdAssigner:
         return self.seen[item]
 
 
-def generate_mat_rep(k, filename='train_triplets.txt'):
-    """
-        Create a representation of a sparse matrix for the song data
-
-        :param k:
-        :param filename:
-        :return:
-    """
+def generate_mat_rep(k, min_song_count, filename='train_triplets.txt'):
 
     entries_seen = 0
     id_playcount_pairs = []
@@ -47,8 +42,9 @@ def generate_mat_rep(k, filename='train_triplets.txt'):
                 play_counts.append(float(line[2]))
                 itemids.append(song_assigner.get_id(line[1]))
             else:
-                id_playcount_pairs.append(np.array(itemids))
-                id_playcount_pairs.append(np.array(play_counts))
+                if max(play_counts) >= min_song_count:
+                    id_playcount_pairs.append(np.array(itemids))
+                    id_playcount_pairs.append(np.array(play_counts))
                 current_user = line[0]
                 itemids = []
                 play_counts = []
@@ -59,10 +55,11 @@ def generate_mat_rep(k, filename='train_triplets.txt'):
         id_playcount_pairs.append(np.array(play_counts))
         id_playcount_pairs.append(np.array([song_assigner.current_id]))
         id_playcount_pairs = np.array(id_playcount_pairs)
-        np.save("id_playcount_pairs", id_playcount_pairs)
-        return
+        np.savez_compressed(PATH, id_playcount_pairs)
+        return len(id_playcount_pairs)//2
 
 
 if __name__ == "__main__":
-    generate_mat_rep(50000000)
-    mat = np.load("id_playcount_pairs.npy")
+    print(generate_mat_rep(5000, 20))
+#    mat = np.load("PATH")["arr_0"]
+#    print(len(mat)//2)

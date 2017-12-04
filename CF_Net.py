@@ -2,20 +2,24 @@ import tensorflow as tf
 import numpy as np
 import os, re, time
 import matplotlib.pyplot as plt
-os.environ["CUDA_VISIBLE_DEVICES"]="-1" 
+#os.environ["CUDA_VISIBLE_DEVICES"]="-1" 
 
-DATA_PATH = "id_playcount_pairs.npy"
+DATA_PATH = "test_id_playcount_pairs.npz"
 CHECK_POINT_DIR = "checkpoints"
-REG = 0.01
+REG = 0.0
 
 class CFNet:
 
     def __init__(self, latent_dim):
-        self.data = np.load(DATA_PATH)
+         
+        with np.load(DATA_PATH) as data:
+            self.data = data["arr_0"]
+            
         self.rnd_range = len(self.data) // 2 - 1
         self.max_song_index = self.data[-1][0] - 1
         self.latent_dim = latent_dim
         self.reuse = False
+        self.leak = 0.2
 
     @staticmethod
     def set_up_folders(output_folder, model_number):
@@ -29,18 +33,30 @@ class CFNet:
 
         os.mkdir(os.path.join(output_folder, model_number))
         return model_number
+    
+    @staticmethod
+    def l_relu(x, leak):
+        return tf.maximum(x, x * leak, name="leaky_relu")
 
     def create_batch(self, batch_size):
-        samples = np.random.randint(0, self.rnd_range, batch_size)
+        #samples = np.random.randint(0, self.rnd_range, batch_size)
+        batch_size = len(self.data)//2 - 1
+        samples = np.arange(0, batch_size)
         base = 2*samples
         song_indices = self.data[base]
         play_counts = self.data[base + 1]
+        play_counts = np.hstack(play_counts)
+        arrays = []
+        for i in range(len(song_indices)):
+            n = len(song_indices[i])
+            pairs = np.array([i]*n)
+            arrays.append(np.dstack((pairs, song_indices[i]))[0])
+        
+        
+        indices = np.vstack(arrays)    
+        return tf.SparseTensorValue(indices=indices, values=play_counts, dense_shape=[batch_size, self.max_song_index])
 
-        batch_data = np.zeros([batch_size, self.max_song_index])
-        for i in range(batch_size): batch_data[i, song_indices[i]] = play_counts[i]
-        return batch_data
-
-    def predict(self, input, scale=REG):
+    def predict(self, inp, scale=REG):
 
         with tf.variable_scope('net', reuse=self.reuse):
             with tf.variable_scope('encode'):
@@ -49,8 +65,8 @@ class CFNet:
                                      regularizer=tf.contrib.layers.l2_regularizer(scale))
                 b1 = tf.get_variable("b1", initializer=tf.constant(0.1, shape=[self.latent_dim]))
 
-                layer1 = tf.nn.bias_add(tf.matmul(input, w1), b1)
-                layer1 = tf.nn.relu(layer1)
+                layer = tf.nn.bias_add(tf.sparse_tensor_dense_matmul(inp, w1), b1)
+                layer = tf.nn.elu(layer)
 
             with tf.variable_scope('decode'):
                 w2 = tf.get_variable("w2", shape=[self.latent_dim, self.max_song_index],
@@ -58,30 +74,34 @@ class CFNet:
                                      regularizer=tf.contrib.layers.l2_regularizer(scale))
                 b2 = tf.get_variable("b2", initializer=tf.constant(0.1, shape=[self.max_song_index]))
 
-                out = tf.nn.bias_add(tf.matmul(layer1, w2), b2)
-                out = tf.nn.relu(out)
+                layer = tf.nn.bias_add(tf.matmul(layer, w2), b2)
+                layer = tf.nn.relu(layer)
 
         self.reuse = True
-        return out
+        return layer
 
-    def train(self, train_steps=100000, learning_rate=0.001, batch_size=32, print_per=5, save_per=1000):
+    def train(self, train_steps=10000, learning_rate=0.001, batch_size=128, print_per=20, save_per=1000):
 
         output_folder = os.path.join(CHECK_POINT_DIR, "")
         model_name = CFNet.set_up_folders(output_folder, model_number="model1")
 
-        sparse_vec = tf.placeholder(tf.float32, [None, self.max_song_index])
+        sparse_vec = tf.sparse_placeholder(tf.float32)
         predictions = self.predict(sparse_vec)
-        filter_vec = sparse_vec > 0
-        filter_vec = tf.cast(filter_vec, tf.float32)
-        predictions = tf.multiply(predictions, filter_vec)
-        se = tf.square(sparse_vec - predictions)
-        se = tf.reduce_sum(se)
-
+        
+        filter_values = tf.ones_like(sparse_vec.values)        
+        filter_vec = tf.SparseTensor(sparse_vec.indices, filter_values, sparse_vec.dense_shape)
+        
+        predictions = filter_vec * predictions
+        negative_sparse_vec = sparse_vec*-1
+        se = tf.square(tf.sparse_add(predictions, negative_sparse_vec))
+        se = tf.sparse_reduce_sum(se)
+        
+        nnz = tf.sparse_reduce_sum(filter_vec)
         reg_w = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
         reg_w = tf.reduce_sum(reg_w)
-        se = se + reg_w
-
-        trainer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(se)
+        se = se/nnz 
+        
+        trainer = tf.train.RMSPropOptimizer(learning_rate=learning_rate).minimize(se)
 
         saver = tf.train.Saver()
         losses = []
@@ -114,7 +134,7 @@ def save_plot(filename, title, x_label, y_label, x_data, y_data):
     plt.savefig(filename, format="png")
 
 if __name__ == "__main__":
-    net = CFNet(latent_dim=500)
+    net = CFNet(latent_dim=300)
     losses = net.train()
     save_plot("losses", "loss vs. train iter", "train_step", "loss", list(range(len(losses))), losses)
 
