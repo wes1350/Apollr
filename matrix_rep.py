@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class IdAssigner:
 
     def __init__(self):
@@ -63,5 +64,5 @@ def generate_mat_rep(k, filename='train_triplets.txt'):
 
 
 if __name__ == "__main__":
-    generate_mat_rep(10000000)
+    generate_mat_rep(50000000)
     mat = np.load("id_playcount_pairs.npy")

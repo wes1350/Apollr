@@ -2,9 +2,11 @@ import tensorflow as tf
 import numpy as np
 import os, re, time
 import matplotlib.pyplot as plt
+os.environ["CUDA_VISIBLE_DEVICES"]="-1" 
 
 DATA_PATH = "id_playcount_pairs.npy"
 CHECK_POINT_DIR = "checkpoints"
+REG = 0.01
 
 class CFNet:
 
@@ -38,12 +40,13 @@ class CFNet:
         for i in range(batch_size): batch_data[i, song_indices[i]] = play_counts[i]
         return batch_data
 
-    def predict(self, input):
+    def predict(self, input, scale=REG):
 
         with tf.variable_scope('net', reuse=self.reuse):
             with tf.variable_scope('encode'):
                 w1 = tf.get_variable("w1", shape=[self.max_song_index, self.latent_dim],
-                                     initializer=tf.contrib.layers.xavier_initializer(uniform=False))
+                                     initializer=tf.contrib.layers.xavier_initializer(uniform=False),
+                                     regularizer=tf.contrib.layers.l2_regularizer(scale))
                 b1 = tf.get_variable("b1", initializer=tf.constant(0.1, shape=[self.latent_dim]))
 
                 layer1 = tf.nn.bias_add(tf.matmul(input, w1), b1)
@@ -51,7 +54,8 @@ class CFNet:
 
             with tf.variable_scope('decode'):
                 w2 = tf.get_variable("w2", shape=[self.latent_dim, self.max_song_index],
-                                     initializer=tf.contrib.layers.xavier_initializer(uniform=False))
+                                     initializer=tf.contrib.layers.xavier_initializer(uniform=False),
+                                     regularizer=tf.contrib.layers.l2_regularizer(scale))
                 b2 = tf.get_variable("b2", initializer=tf.constant(0.1, shape=[self.max_song_index]))
 
                 out = tf.nn.bias_add(tf.matmul(layer1, w2), b2)
@@ -60,7 +64,7 @@ class CFNet:
         self.reuse = True
         return out
 
-    def train(self, train_steps=100000, learning_rate=0.002, batch_size=32, print_per=100, save_per=1000):
+    def train(self, train_steps=100000, learning_rate=0.001, batch_size=32, print_per=5, save_per=1000):
 
         output_folder = os.path.join(CHECK_POINT_DIR, "")
         model_name = CFNet.set_up_folders(output_folder, model_number="model1")
@@ -70,9 +74,14 @@ class CFNet:
         filter_vec = sparse_vec > 0
         filter_vec = tf.cast(filter_vec, tf.float32)
         predictions = tf.multiply(predictions, filter_vec)
-        mse = tf.losses.mean_squared_error(sparse_vec, predictions)
+        se = tf.square(sparse_vec - predictions)
+        se = tf.reduce_sum(se)
 
-        trainer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(mse)
+        reg_w = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
+        reg_w = tf.reduce_sum(reg_w)
+        se = se + reg_w
+
+        trainer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(se)
 
         saver = tf.train.Saver()
         losses = []
@@ -81,9 +90,8 @@ class CFNet:
             start = time.time()
             for step in range(1, train_steps + 1):
 
-                _, loss = sess.run([trainer, mse], feed_dict={sparse_vec: self.create_batch(batch_size)})
+                _, loss = sess.run([trainer, se], feed_dict={sparse_vec: self.create_batch(batch_size)})
                 losses.append(loss)
-                print(step)
                 if step % print_per == 0:
                     print("loss={}, on update step {}".format(loss, step))
                     end = time.time()
