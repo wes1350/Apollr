@@ -60,6 +60,6 @@ def generate_mat_rep(k, min_song_count, filename='train_triplets.txt'):
 
 
 if __name__ == "__main__":
-    print(generate_mat_rep(5000, 20))
+    print(generate_mat_rep(100000, 20))
 #    mat = np.load("PATH")["arr_0"]
 #    print(len(mat)//2)

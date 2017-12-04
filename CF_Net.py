@@ -60,33 +60,78 @@ class CFNet:
 
         with tf.variable_scope('net', reuse=self.reuse):
             with tf.variable_scope('encode'):
-                w1 = tf.get_variable("w1", shape=[self.max_song_index, self.latent_dim],
+                w = tf.get_variable("w1", shape=[self.max_song_index, self.latent_dim],
                                      initializer=tf.contrib.layers.xavier_initializer(uniform=False),
                                      regularizer=tf.contrib.layers.l2_regularizer(scale))
-                b1 = tf.get_variable("b1", initializer=tf.constant(0.1, shape=[self.latent_dim]))
+                b = tf.get_variable("b1", initializer=tf.constant(0.1, shape=[self.latent_dim]))
 
-                layer = tf.nn.bias_add(tf.sparse_tensor_dense_matmul(inp, w1), b1)
+                layer = tf.nn.bias_add(tf.sparse_tensor_dense_matmul(inp, w), b)
                 layer = tf.nn.elu(layer)
 
             with tf.variable_scope('decode'):
-                w2 = tf.get_variable("w2", shape=[self.latent_dim, self.max_song_index],
+                w = tf.get_variable("w2", shape=[self.latent_dim, self.max_song_index],
                                      initializer=tf.contrib.layers.xavier_initializer(uniform=False),
                                      regularizer=tf.contrib.layers.l2_regularizer(scale))
-                b2 = tf.get_variable("b2", initializer=tf.constant(0.1, shape=[self.max_song_index]))
+                b = tf.get_variable("b2", initializer=tf.constant(0.1, shape=[self.max_song_index]))
 
-                layer = tf.nn.bias_add(tf.matmul(layer, w2), b2)
+                layer = tf.nn.bias_add(tf.matmul(layer, w), b)
+                layer = tf.nn.relu(layer)
+
+        self.reuse = True
+        return layer
+    
+    
+    def deep_predict(self, inp, scale=REG, l_dim_scale=3):
+
+        with tf.variable_scope('net', reuse=self.reuse):
+            with tf.variable_scope('encode'):
+                w = tf.get_variable("w1", shape=[self.max_song_index, self.latent_dim*l_dim_scale],
+                                     initializer=tf.contrib.layers.xavier_initializer(uniform=False),
+                                     regularizer=tf.contrib.layers.l2_regularizer(scale))
+                b = tf.get_variable("b1", initializer=tf.constant(0.1, shape=[self.latent_dim*l_dim_scale]))
+
+                layer = tf.nn.bias_add(tf.sparse_tensor_dense_matmul(inp, w), b)
+                layer = tf.nn.elu(layer)
+                
+            with tf.variable_scope('h1'):
+                w = tf.get_variable("w", shape=[self.latent_dim*l_dim_scale, self.latent_dim],
+                                     initializer=tf.contrib.layers.xavier_initializer(uniform=False),
+                                     regularizer=tf.contrib.layers.l2_regularizer(scale))
+                b = tf.get_variable("b", initializer=tf.constant(0.1, shape=[self.latent_dim]))
+
+                layer = tf.nn.bias_add(tf.matmul(layer, w), b)
+                layer = tf.nn.elu(layer)
+            
+            with tf.variable_scope('h2'):
+                w1 = tf.get_variable("w", shape=[self.latent_dim, self.latent_dim*l_dim_scale],
+                                     initializer=tf.contrib.layers.xavier_initializer(uniform=False),
+                                     regularizer=tf.contrib.layers.l2_regularizer(scale))
+                b1 = tf.get_variable("b", initializer=tf.constant(0.1, shape=[self.latent_dim*l_dim_scale]))
+
+                layer = tf.nn.bias_add(tf.matmul(layer, w1), b1)
+                layer = tf.nn.elu(layer)
+
+            with tf.variable_scope('decode'):
+                w = tf.get_variable("w", shape=[self.latent_dim*l_dim_scale, self.max_song_index],
+                                     initializer=tf.contrib.layers.xavier_initializer(uniform=False),
+                                     regularizer=tf.contrib.layers.l2_regularizer(scale))
+                b = tf.get_variable("b", initializer=tf.constant(0.1, shape=[self.max_song_index]))
+
+                layer = tf.nn.bias_add(tf.matmul(layer, w), b)
                 layer = tf.nn.relu(layer)
 
         self.reuse = True
         return layer
 
-    def train(self, train_steps=10000, learning_rate=0.001, batch_size=128, print_per=20, save_per=1000):
+    def train(self, train_steps=1000, learning_rate=0.001, batch_size=128, print_per=20, save_per=1000, deep=False):
+        
+        pred = self.deep_predict if deep else self.predict
 
         output_folder = os.path.join(CHECK_POINT_DIR, "")
         model_name = CFNet.set_up_folders(output_folder, model_number="model1")
 
         sparse_vec = tf.sparse_placeholder(tf.float32)
-        predictions = self.predict(sparse_vec)
+        predictions = pred(sparse_vec)
         
         filter_values = tf.ones_like(sparse_vec.values)        
         filter_vec = tf.SparseTensor(sparse_vec.indices, filter_values, sparse_vec.dense_shape)
@@ -134,7 +179,7 @@ def save_plot(filename, title, x_label, y_label, x_data, y_data):
     plt.savefig(filename, format="png")
 
 if __name__ == "__main__":
-    net = CFNet(latent_dim=300)
-    losses = net.train()
-    save_plot("losses", "loss vs. train iter", "train_step", "loss", list(range(len(losses))), losses)
+    net = CFNet(latent_dim=100)
+    losses = net.train(deep=True)
+    save_plot("losses_deep", "loss vs. train iter", "train_step", "loss", list(range(len(losses))), losses)
 
