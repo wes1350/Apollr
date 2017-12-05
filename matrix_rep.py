@@ -1,7 +1,16 @@
 import numpy as np
+import os, random
 
+TRIPLETS_PATH = "train_triplets.txt"
+PATH = os.path.join("data")
+if not os.path.exists(PATH): os.mkdir(PATH)
 
-PATH = "test_id_playcount_pairs"
+TRAIN_PATH = os.path.join(PATH, "train.npz")
+
+PERCENT_TRAIN = 0.6
+PERCENT_VAL = 0.2
+PERCENT_TEST = 0.2
+
 
 class IdAssigner:
 
@@ -16,17 +25,22 @@ class IdAssigner:
         return self.seen[item]
 
 
-def generate_mat_rep(k, min_song_count, filename='train_triplets.txt'):
+def generate_mat_rep(k, min_song_count, filename=TRIPLETS_PATH):
 
     entries_seen = 0
-    id_playcount_pairs = []
+    train_pairs = []
+    val_threshold = PERCENT_TRAIN + PERCENT_VAL
+    val_pairs = []
+    test_pairs = []
+
     play_counts = []
     itemids = []
+
     song_assigner = IdAssigner()
 
     with open(filename, mode='r') as f:
         line = next(f).strip().split()
-        current_user = line[0]
+        current_user = [line[0], random.random()]
         itemids.append(song_assigner.get_id(line[1]))
         play_counts.append(float(line[2]))
         entries_seen += 1
@@ -38,28 +52,34 @@ def generate_mat_rep(k, min_song_count, filename='train_triplets.txt'):
 
             line = entry.strip().split()
 
-            if current_user == line[0]:
+            if current_user[0] == line[0]:
                 play_counts.append(float(line[2]))
                 itemids.append(song_assigner.get_id(line[1]))
             else:
                 if max(play_counts) >= min_song_count:
-                    id_playcount_pairs.append(np.array(itemids))
-                    id_playcount_pairs.append(np.array(play_counts))
-                current_user = line[0]
+                    if current_user[1] < PERCENT_TRAIN:
+                        train_pairs.append(np.array(itemids))
+                        train_pairs.append(np.array(play_counts))
+                    elif PERCENT_TRAIN <= current_user[1] < val_threshold:
+                        val_pairs.append(np.array(itemids))
+                        val_pairs.append(np.array(play_counts))
+                    elif val_threshold <= current_user[1] < 1.0:
+                        test_pairs.append(np.array(itemids))
+                        test_pairs.append(np.array(play_counts))
+
+                current_user = [line[0], random.random()]
                 itemids = []
                 play_counts = []
 
             entries_seen += 1
 
-        id_playcount_pairs.append(np.array(itemids))
-        id_playcount_pairs.append(np.array(play_counts))
-        id_playcount_pairs.append(np.array([song_assigner.current_id]))
-        id_playcount_pairs = np.array(id_playcount_pairs)
-        np.savez_compressed(PATH, id_playcount_pairs)
-        return len(id_playcount_pairs)//2
+        train_pairs.append(np.array(itemids))
+        train_pairs.append(np.array(play_counts))
+        train_pairs.append(np.array([song_assigner.current_id]))
+        np.savez_compressed(TRAIN_PATH, train=train_pairs, val=val_pairs, test=test_pairs)
+        return len(train_pairs)//2
 
 
 if __name__ == "__main__":
-    print(generate_mat_rep(100000, 20))
-#    mat = np.load("PATH")["arr_0"]
-#    print(len(mat)//2)
+    generate_mat_rep(50000000, 20)
+   #mat = np.load(TRAIN_PATH)
