@@ -3,7 +3,7 @@ import numpy as np
 import os, re, time
 import matplotlib.pyplot as plt
 
-# os.environ["CUDA_VISIBLE_DEVICES"]="-1"
+os.environ["CUDA_VISIBLE_DEVICES"]="-1"
 
 DATA_PATH = os.path.join("data", "train.npz")
 CHECK_POINT_DIR = "checkpoints"
@@ -15,8 +15,8 @@ class CFNet:
 
         with np.load(DATA_PATH, mmap_mode='r') as data:
             self.data = data["train"]
+            self.val = data["val"]
 
-        self.rnd_range = len(self.data) // 2 - 1
         self.max_song_index = self.data[-1][0] - 1
         self.latent_dim = latent_dim
         self.reuse = False
@@ -38,13 +38,15 @@ class CFNet:
     def l_relu(x, leak=0.2):
         return tf.maximum(x, x * leak, name="leaky_relu")
 
-    def create_batch(self, batch_size):
-        samples = np.random.randint(0, self.rnd_range, batch_size)
+    def create_batch(self, batch_size, val=False):
+        data = self.val if val else self.data
+        samples = np.random.randint(0, len(data) // 2 - 1, batch_size)
         # batch_size = len(self.data) // 2 - 1
         # samples = np.arange(0, batch_size)
+        
         base = 2 * samples
-        song_indices = self.data[base]
-        play_counts = self.data[base + 1]
+        song_indices = data[base]
+        play_counts = data[base + 1]
         play_counts = np.hstack(play_counts)
         arrays = []
         for i in range(len(song_indices)):
@@ -121,7 +123,7 @@ class CFNet:
         self.reuse = True
         return layer
 
-    def train(self, train_steps=1000, learning_rate=0.001, batch_size=128, print_per=20, save_per=1000, deep=False):
+    def train(self, train_steps=5000, learning_rate=0.001, batch_size=128, print_per=20, save_per=100, deep=False):
 
         pred = self.deep_predict if deep else self.predict
 
@@ -134,9 +136,9 @@ class CFNet:
         filter_values = tf.ones_like(sparse_vec.values)
         filter_vec = tf.SparseTensor(sparse_vec.indices, filter_values, sparse_vec.dense_shape)
 
-        predictions = filter_vec * predictions
+        filtered_predictions = filter_vec * predictions
         negative_sparse_vec = sparse_vec * -1
-        se = tf.square(tf.sparse_add(predictions, negative_sparse_vec))
+        se = tf.square(tf.sparse_add(filtered_predictions, negative_sparse_vec))
         se = tf.sparse_reduce_sum(se)
 
         nnz = tf.sparse_reduce_sum(filter_vec)
@@ -148,6 +150,8 @@ class CFNet:
 
         saver = tf.train.Saver()
         losses = []
+        val_losses = []
+        
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
             start = time.time()
@@ -159,16 +163,25 @@ class CFNet:
                     print("loss={}, on update step {}".format(loss, step))
                     end = time.time()
                     print("Average time for 1 iteration was {}s".format((end - start) / print_per))
+                    
+                    loss = sess.run(se, feed_dict={sparse_vec: self.create_batch(batch_size, val=True)})
+                    val_losses.append(loss)
+                    print("Current Validation loss={}".format(loss))
                     start = time.time()
 
                 if step % save_per == 0 or step == train_steps:
                     saver.save(sess, "{}/{}/".format(output_folder, model_name), step)
 
-        return losses
+        return losses, val_losses
+    
+    
+    def load_and_test(self): pass
 
 
-def save_plot(filename, title, x_label, y_label, x_data, y_data):
-    plt.plot(x_data, y_data)
+
+def save_plot(filename, title, x_label, y_label, x_train, y_train, x_val, y_val):
+    plt.plot(x_train, y_train, '-b', label='Training loss')
+    plt.plot(x_val, y_val, '-r', label='Val loss')
     plt.xlabel = x_label
     plt.ylabel = y_label
     plt.title(title)
@@ -178,5 +191,6 @@ def save_plot(filename, title, x_label, y_label, x_data, y_data):
 
 if __name__ == "__main__":
     net = CFNet(latent_dim=500)
-    losses = net.train(deep=True)
-    save_plot("losses_deep", "loss vs. train iter", "train_step", "loss", list(range(len(losses))), losses)
+    losses, val_losses = net.train(deep=False)
+    save_plot("losses_deep", "Loss vs Train Iteration", "train_step", "loss", list(range(len(losses))), 
+              losses, list(range(len(val_losses))), val_losses)

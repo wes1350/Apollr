@@ -81,5 +81,5 @@ def generate_mat_rep(k, min_song_count, filename=TRIPLETS_PATH):
 
 
 if __name__ == "__main__":
-    generate_mat_rep(50000000, 20)
+    generate_mat_rep(15000000, 20)
    #mat = np.load(TRAIN_PATH)
