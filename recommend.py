@@ -1,4 +1,4 @@
-from surprise import Reader, Dataset, SVD
+from surprise import Reader, Dataset, SVD, SVDpp
 import pandas as pd
 import math
 
@@ -10,23 +10,29 @@ DATA_POINTS_TO_READ = 100000
 def convert_to_rating(data, max_rating=MAX_RATING, max_rating_filter = 0):
     """
         Converts a list of play counts for a certain user to a list of ratings based on the
-        given scale.
+        given scale (vanila normalization).
 
         :param data:
         :param max_rating:
         :param max_rating_filter:
         :return:
     """
+    # probability_bin = 1.0/max_rating
+    # max_value = max(data)
+    # if max_value <= max_rating_filter:
+    #     return None
+    # ratings = [1.0*play_count/max_value for play_count in data]
+    # print(ratings)
+    # return [math.ceil(1.0*percentage/probability_bin) for percentage in ratings]
 
-    probability_bin = 1.0/max_rating
     max_value = max(data)
     if max_value <= max_rating_filter:
         return None
-    ratings = [1.0*play_count/max_value for play_count in data]
-    return [math.ceil(1.0*percentage/probability_bin) for percentage in ratings]
+    ratings = [math.ceil(count*MAX_RATING/max_value) for count in data]
+    return ratings
 
 
-def load_k(k, filename='../867FPData/train_triplets.txt', max_rating=MAX_RATING, max_rating_filter = 0):
+def load_k(k, filename, max_rating=MAX_RATING, max_rating_filter = 0):
     """
         Reads the first k files from the data set and creates a panda data frame with
         columns itemID, useID and rating by transforming the play count to a range
@@ -57,7 +63,6 @@ def load_k(k, filename='../867FPData/train_triplets.txt', max_rating=MAX_RATING,
 
         for i in range(k-1):
             line = next(f).strip().split()
-
             # itemids.append(line[1])
             # userids.append(line[0])
 
@@ -69,7 +74,7 @@ def load_k(k, filename='../867FPData/train_triplets.txt', max_rating=MAX_RATING,
                 converted_rating = convert_to_rating(temp_ratings, max_rating, max_rating_filter)
                 if converted_rating is not None:
                     ct +=1
-                    print(ct)
+                    # print(ct)
                     ratings.extend(converted_rating)
                     userids.extend(temp_userids)
                     itemids.extend(temp_itemids)
@@ -106,22 +111,22 @@ def split_for_eval(data_frame, num_train):
     return train, test
 
 
-def perform_CF(data_points, max_rating_filter = 0):
+def perform_CF(algo, data_points, filename, max_rating_filter = 0):
     """
         Gets data to perform filtering
 
         :param data_points:
         :return:
     """
-    df = load_k(data_points, max_rating_filter=max_rating_filter)
+    df = load_k(data_points, filename, max_rating_filter=max_rating_filter)
     numRows = df.shape[0]
-    print("NUM ROWS:", numRows)
+    # print("NUM ROWS:", numRows)
     train, test = split_for_eval(df, num_train=int(0.9*numRows))
 
     reader = Reader(rating_scale=(1, 5))
     data = Dataset.load_from_df(train[['userID', 'itemID', 'rating']], reader)
 
-    algo = SVD()
+    algo = algo()
     train_set = data.build_full_trainset()
     algo.train(train_set)
 
@@ -150,6 +155,8 @@ def perform_CF(data_points, max_rating_filter = 0):
     acc_rms = (1.0*acc_sq_err/(len(test)-1))**0.5
     return "ERROR, ACCURACY, ACCURACY_RMS:", error, accuracy, acc_rms
 
-
-print(perform_CF(DATA_POINTS_TO_READ, max_rating_filter=20))
+print('########################')
+print('SVD performance', perform_CF(SVD, DATA_POINTS_TO_READ, './train_triplets.txt', max_rating_filter=20))
+print('########################')
+print('SVD++ performance', perform_CF(SVDpp, DATA_POINTS_TO_READ, './train_triplets.txt', max_rating_filter=20))
 # print(convert_to_rating([i for i in range(1,13)], 5))
