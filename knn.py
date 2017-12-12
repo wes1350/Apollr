@@ -11,7 +11,6 @@ def perform_knn(algo, data_points, filename, max_rating_filter = 0):
     df = load_k(data_points, filename, data_points, max_rating_filter=max_rating_filter)
     numRows = df.shape[0]
     numCols = df.shape[1]
-    print("NUM ROWS", numRows, "NUM COLS", numCols)
     train, test = split_for_eval(df, num_train=int(0.9*numRows))
 
     reader = Reader(rating_scale=(1, 5))
@@ -51,10 +50,12 @@ def perform_knn(algo, data_points, filename, max_rating_filter = 0):
     return "ERROR, ACCURACY, ACCURACY_RMS:", error, accuracy, acc_rms
 
 print('########################')
-print('KNNBasic performance', perform_knn(pa.knns.KNNBasic, 10000, './artistsc.txt', max_rating_filter=20))
+print('KNNBasic performance', perform_knn(pa.knns.KNNBasic, DATA_POINTS_TO_READ, './artistsc.txt', max_rating_filter=20))
 print('########################')
-print('KNNBaseline performance', perform_knn(pa.knns.KNNBaseline, 10000, './artistsc.txt', max_rating_filter=20))
+print('KNNBaseline performance', perform_knn(pa.knns.KNNBaseline, DATA_POINTS_TO_READ, './artistsc.txt', max_rating_filter=20))
 print('########################')
-print('KNNWithMeans performance', perform_knn(pa.knns.KNNWithMeans, 10000, './artistsc.txt', max_rating_filter=20))
+print('KNNWithMeans performance', perform_knn(pa.knns.KNNWithMeans, DATA_POINTS_TO_READ, './artistsc.txt', max_rating_filter=20))
 print('########################')
-print('KNNWithZScore performance', perform_knn(pa.knns.KNNWithZScore, 10000, './artistsc.txt', max_rating_filter=20))
+print('KNNWithZScore performance', perform_knn(pa.knns.KNNWithZScore, DATA_POINTS_TO_READ, './artistsc.txt', max_rating_filter=20))
+print('########################')
+print('CoClustering performance', perform_knn(CoClustering, DATA_POINTS_TO_READ, './artistsc.txt', max_rating_filter=20))

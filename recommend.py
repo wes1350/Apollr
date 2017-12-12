@@ -1,4 +1,4 @@
-from surprise import Reader, Dataset, SVD, SVDpp
+from surprise import Reader, Dataset, SVD, SVDpp, NMF, SlopeOne, CoClustering
 import pandas as pd
 import math
 import statistics as st
@@ -231,4 +231,7 @@ print('########################')
 print('SVD performance', perform_CF(SVD, DATA_POINTS_TO_READ, './train_triplets.txt', max_rating_filter=20))
 print('########################')
 print('SVD++ performance', perform_CF(SVDpp, DATA_POINTS_TO_READ, './train_triplets.txt', max_rating_filter=20))
-# print(convert_to_rating([i for i in range(1,13)], 5))
+print('########################')
+print('NMF performance', perform_CF(NMF, DATA_POINTS_TO_READ, './train_triplets.txt', max_rating_filter=20))
+print('########################')
+print('SlopeOne performance', perform_CF(SlopeOne, DATA_POINTS_TO_READ, './train_triplets.txt', max_rating_filter=20))
