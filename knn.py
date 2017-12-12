@@ -57,4 +57,4 @@ print('KNNBaseline performance', perform_knn(pa.knns.KNNBaseline, 10000, './arti
 print('########################')
 print('KNNWithMeans performance', perform_knn(pa.knns.KNNWithMeans, 10000, './artistsc.txt', max_rating_filter=20))
 print('########################')
-print('KNNWithZscore performance', perform_knn(pa.knns.KNNWithZscore, 10000, './artistsc.txt', max_rating_filter=20))
+print('KNNWithZScore performance', perform_knn(pa.knns.KNNWithZScore, 10000, './artistsc.txt', max_rating_filter=20))

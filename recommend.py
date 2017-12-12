@@ -1,13 +1,14 @@
 from surprise import Reader, Dataset, SVD, SVDpp
 import pandas as pd
 import math
+import statistics as st
 
 
 MAX_RATING = 5
 DATA_POINTS_TO_READ = 100000
 
 
-def convert_to_rating(data, max_rating=MAX_RATING, max_rating_filter = 0):
+def convert_to_rating(data, max_rating=MAX_RATING, max_rating_filter=0):
     """
         Converts a list of play counts for a certain user to a list of ratings based on the
         given scale (vanila normalization).
@@ -28,8 +29,77 @@ def convert_to_rating(data, max_rating=MAX_RATING, max_rating_filter = 0):
     max_value = max(data)
     if max_value <= max_rating_filter:
         return None
-    ratings = [math.ceil(count*MAX_RATING/max_value) for count in data]
+    ratings = [math.ceil(math.log(count+1)*MAX_RATING/math.log(max_value)) for count in data]
     return ratings
+
+def class_conversion_1(data, max_rating=MAX_RATING, max_rating_filter=0):
+    """
+        Converts playcounts for a certain user to a list of ratings according
+        to the classes below, manual experimentation
+
+        1: [1-3]
+        2: [4-6]
+        3: [7-15]
+        4: [16-25]
+        5: [25-max]
+    """
+    max_value = max(data)
+    if max_value <= max_rating_filter:
+        return None
+    ratings = []
+    for count in data:
+        if count <= 3:
+            ratings.append(1.0)
+        elif count <= 6:
+             ratings.append(2.0)
+        elif count <= 15:
+            ratings.append(3.0)
+        elif count <= 25:
+            ratings.append(4.0)
+        else:
+            ratings.append(5.0)
+    return ratings
+
+def class_conversion_2(data, max_rating=MAX_RATING, max_rating_filter=0):
+    """
+        Converts playcounts for a certain user to a list of ratings according
+        to the classes below, which are inspired by a gaussian distribution (z_score)
+
+        1: [1 - 2std away below mean]
+        2: [2std - 1std below mean]
+        3: [1std between mean]
+        4: [1std -2std above mean]
+        5: [2std above mean - max]
+    """
+    max_value = max(data)
+    if max_value <= max_rating_filter:
+        return None
+    log_data = [math.log(count) for count in data]
+    print(data)
+    print(log_data)
+    ratings = []
+    mean = st.mean(log_data)
+    std = st.stdev(log_data)
+    for count in log_data:
+        if count <= mean-2*math.sqrt(std):
+            ratings.append(1.0)
+        elif count <= mean-math.sqrt(std):
+             ratings.append(2.0)
+        elif count <= mean+math.sqrt(std):
+            ratings.append(3.0)
+        elif count <= mean+2*math.sqrt(std):
+            ratings.append(4.0)
+        else:
+            ratings.append(5.0)
+    print(mean)
+    print(std)
+    print(ratings)
+    print(data)
+    if max_value > 50:
+        asd
+    return ratings
+
+
 
 
 def load_k(k, filename, max_rating=MAX_RATING, max_rating_filter = 0):
@@ -145,6 +215,8 @@ def perform_CF(algo, data_points, filename, max_rating_filter = 0):
         """ prediction takes form: [userid, songid, actual_ration, estimated_rating, dictionary"""
         deviation = deviation + abs(rating - prediction[3])
 
+        # print('prediction', round(prediction[3]))
+        # print('rating',  rating)
         if rating == round(prediction[3]):
             accuracy += 1
         else:
