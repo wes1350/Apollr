@@ -49,13 +49,13 @@ def perform_knn(algo, data_points, filename, max_rating_filter = 0):
     acc_rms = (1.0*acc_sq_err/(len(test)-1))**0.5
     return "ERROR, ACCURACY, ACCURACY_RMS:", error, accuracy, acc_rms
 
-print('########################')
-print('KNNBasic performance', perform_knn(pa.knns.KNNBasic, DATA_POINTS_TO_READ, './artistsc.txt', max_rating_filter=20))
+#print('########################')
+#print('KNNBasic performance', perform_knn(pa.knns.KNNBasic, DATA_POINTS_TO_READ, './artistsc.txt', max_rating_filter=20))
 print('########################')
 print('KNNBaseline performance', perform_knn(pa.knns.KNNBaseline, DATA_POINTS_TO_READ, './artistsc.txt', max_rating_filter=20))
-print('########################')
-print('KNNWithMeans performance', perform_knn(pa.knns.KNNWithMeans, DATA_POINTS_TO_READ, './artistsc.txt', max_rating_filter=20))
+#print('########################')
+#print('KNNWithMeans performance', perform_knn(pa.knns.KNNWithMeans, DATA_POINTS_TO_READ, './artistsc.txt', max_rating_filter=20))
 print('########################')
 print('KNNWithZScore performance', perform_knn(pa.knns.KNNWithZScore, DATA_POINTS_TO_READ, './artistsc.txt', max_rating_filter=20))
-print('########################')
-print('CoClustering performance', perform_knn(CoClustering, DATA_POINTS_TO_READ, './artistsc.txt', max_rating_filter=20))
+#print('########################')
+#print('CoClustering performance', perform_knn(CoClustering, DATA_POINTS_TO_READ, './artistsc.txt', max_rating_filter=20))

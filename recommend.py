@@ -5,7 +5,7 @@ import math
 import statistics as st
 
 MAX_RATING = 5
-DATA_POINTS_TO_READ = 100000
+DATA_POINTS_TO_READ = 1000000
 
 percentile_dist = []
 
@@ -19,24 +19,26 @@ def convert_to_rating(data, max_rating=MAX_RATING, max_rating_filter=0):
         :param max_rating_filter:
         :return:
     """
-    probability_bin = 1.0/max_rating
-    max_value = max(data)
-    if max_value <= max_rating_filter:
-        return None
-
-    for pc in data:
-        percentile_dist.append(pc * 1.0 / max(data))
-        print(pc * 1.0 / max(data))
-
-    ratings = [1.0*play_count/max_value for play_count in data]
-    return [math.ceil(1.0*percentage/probability_bin) for percentage in ratings]
+    # probability_bin = 1.0/max_rating
+    # max_value = max(data)
+    # if max_value <= max_rating_filter:
+    #     return None
+    #
+    # ratings = [1.0*play_count/max_value for play_count in data]
+    # return [math.ceil(1.0*percentage/probability_bin) for percentage in ratings]
     # probability_bin = 1.0/max_rating
     # max_value = max(data)
     # if max_value <= max_rating_filter:
     #     return None
     # ratings = [1.0*play_count/max_value for play_count in data]
-    # print(ratings)
+    # # print(ratings)
     # return [math.ceil(1.0*percentage/probability_bin) for percentage in ratings]
+
+    max_value = max(data)
+    if max_value <= max_rating_filter:
+        return None
+    ratings = [math.ceil(count*MAX_RATING/max_value) for count in data]
+    return ratings
 
     # max_value = max(data)
     # if max_value <= max_rating_filter:
@@ -44,7 +46,7 @@ def convert_to_rating(data, max_rating=MAX_RATING, max_rating_filter=0):
     # ratings = [math.ceil(math.log(count+1)*MAX_RATING/math.log(max_value)) for count in data]
     # return ratings
 
-def class_conversion_1(data, max_rating=MAX_RATING, max_rating_filter=0):
+def convert_to_rating1(data, max_rating=MAX_RATING, max_rating_filter=0):
     """
         Converts playcounts for a certain user to a list of ratings according
         to the classes below, manual experimentation
@@ -72,7 +74,7 @@ def class_conversion_1(data, max_rating=MAX_RATING, max_rating_filter=0):
             ratings.append(5.0)
     return ratings
 
-def class_conversion_2(data, max_rating=MAX_RATING, max_rating_filter=0):
+def convert_to_rating2(data, max_rating=MAX_RATING, max_rating_filter=0):
     """
         Converts playcounts for a certain user to a list of ratings according
         to the classes below, which are inspired by a gaussian distribution (z_score)
@@ -108,6 +110,7 @@ def class_conversion_2(data, max_rating=MAX_RATING, max_rating_filter=0):
     # print(ratings)
     # print(data)
     return ratings
+
 
 def load_k(k, filename, max_rating=MAX_RATING, max_rating_filter = 0):
     """
@@ -166,15 +169,13 @@ def load_k(k, filename, max_rating=MAX_RATING, max_rating_filter = 0):
         ratings.extend(converted_rating)
         userids.extend(temp_userids)
         itemids.extend(temp_itemids)
-    print "User Count:", ct
 
     ratings_dict = {'itemID': itemids, 'userID': userids, 'rating': ratings}
     df = pd.DataFrame(ratings_dict)
-    print df[:10]
 
-    plt.hist(percentile_dist, bins = 100)
-    plt.title("Playcount Percentile Distribution, No Transform")
-    plt.show()
+    # plt.hist(percentile_dist, bins = 100)
+    # plt.title("Playcount Percentile Distribution, No Transform")
+    # plt.show()
 
     return df
 
@@ -246,11 +247,9 @@ def perform_CF(algo, data_points, filename, max_rating_filter = 0):
     acc_rms = (1.0*acc_sq_err/(len(test)-1))**0.5
     return "ERROR, ACCURACY, ACCURACY_RMS:", error, accuracy, acc_rms
 
+"""
 print('########################')
-print('SVD performance', perform_CF(SVD, DATA_POINTS_TO_READ, './train_triplets.txt', max_rating_filter=20))
+print('SVD performance', perform_CF(SVD, DATA_POINTS_TO_READ, './artistsc.txt', max_rating_filter=20))
 print('########################')
-print('SVD++ performance', perform_CF(SVDpp, DATA_POINTS_TO_READ, './train_triplets.txt', max_rating_filter=20))
-print('########################')
-print('NMF performance', perform_CF(NMF, DATA_POINTS_TO_READ, './train_triplets.txt', max_rating_filter=20))
-print('########################')
-print('SlopeOne performance', perform_CF(SlopeOne, DATA_POINTS_TO_READ, './train_triplets.txt', max_rating_filter=20))
+print('SVD++ performance', perform_CF(SVDpp, DATA_POINTS_TO_READ, './artistsc.txt', max_rating_filter=20))
+"""
