@@ -1,11 +1,11 @@
-from surprise import Reader, Dataset, SVD
+from surprise import Reader, Dataset, SVD, NMF, KNNBasic, SVDpp
 import pandas as pd
 import math
-
-
+import matplotlib.pyplot as plt
 MAX_RATING = 5
 DATA_POINTS_TO_READ = 100000
 
+percentile_dist = []
 
 def convert_to_rating(data, max_rating=MAX_RATING, max_rating_filter = 0):
     """
@@ -17,11 +17,15 @@ def convert_to_rating(data, max_rating=MAX_RATING, max_rating_filter = 0):
         :param max_rating_filter:
         :return:
     """
-
     probability_bin = 1.0/max_rating
     max_value = max(data)
     if max_value <= max_rating_filter:
         return None
+
+    for pc in data:
+        percentile_dist.append(pc * 1.0 / max(data))
+        print(pc * 1.0 / max(data))
+
     ratings = [1.0*play_count/max_value for play_count in data]
     return [math.ceil(1.0*percentage/probability_bin) for percentage in ratings]
 
@@ -69,7 +73,7 @@ def load_k(k, filename='../867FPData/train_triplets.txt', max_rating=MAX_RATING,
                 converted_rating = convert_to_rating(temp_ratings, max_rating, max_rating_filter)
                 if converted_rating is not None:
                     ct +=1
-                    print(ct)
+                    # print(ct)
                     ratings.extend(converted_rating)
                     userids.extend(temp_userids)
                     itemids.extend(temp_itemids)
@@ -80,12 +84,20 @@ def load_k(k, filename='../867FPData/train_triplets.txt', max_rating=MAX_RATING,
 
     converted_rating = convert_to_rating(temp_ratings, max_rating, max_rating_filter)
     if converted_rating is not None:
+        ct += 1
         ratings.extend(converted_rating)
         userids.extend(temp_userids)
         itemids.extend(temp_itemids)
+    print "User Count:", ct
 
     ratings_dict = {'itemID': itemids, 'userID': userids, 'rating': ratings}
     df = pd.DataFrame(ratings_dict)
+    print df[:10]
+
+    plt.hist(percentile_dist, bins = 100)
+    plt.title("Playcount Percentile Distribution, No Transform")
+    plt.show()
+
     return df
 
 
@@ -122,6 +134,9 @@ def perform_CF(data_points, max_rating_filter = 0):
     data = Dataset.load_from_df(train[['userID', 'itemID', 'rating']], reader)
 
     algo = SVD()
+    # algo = SVDpp()
+    # algo = KNNBasic()
+    # algo = NMF()
     train_set = data.build_full_trainset()
     algo.train(train_set)
 
